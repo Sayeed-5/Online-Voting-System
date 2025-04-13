@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Admin Dashboard{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark" style="background-color: #1a3c34;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('home') }}">
+                <img src="{{ url_for('static', filename='images/Odisha.png') }}" alt="Logo" style="height: 30px;">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('aboutus') }}">About Us</a></li>
+                    {% if 'voter_id' in session %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('profile') }}">Profile</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('vote') }}">Voting</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
+                    {% elif 'admin' in session %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_logout') }}">Admin Logout</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register Voter</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('candidate_register') }}">Register Candidate</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_login') }}">Admin Login</a></li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('results') }}">Results</a></li>
+                </ul>
+                <form class="d-flex" method="GET" action="{% if 'admin' in session %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('results') }}{% endif %}">
+                    <input class="form-control me-2" type="text" name="search" placeholder="{% if 'admin' in session %}Search Admin Data{% else %}Search Results{% endif %}" value="{{ search_query|default('') }}">
+                    <button class="btn btn-danger" type="submit">Search</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Admin Dashboard</h1>
+        
+        <!-- Existing Management Section -->
+        <div class="mb-4">
+            <a href="{{ url_for('add_voter') }}" class="btn btn-success me-2">Add New Voter</a>
+            <a href="{{ url_for('add_candidate') }}" class="btn btn-success">Add New Candidate</a>
+        </div>
+
+        <h2>Voters</h2>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Voter ID</th><th>Name</th><th>Address</th><th>Block</th><th>Email</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for voter in voters %}
+                    <tr>
+                        <td>{{ voter['voter_id'] }}</td>
+                        <td>{{ voter['name'] }}</td>
+                        <td>{{ voter['address'] }}</td>
+                        <td>{{ voter['block'] }}</td>
+                        <td>{{ voter['email'] }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_voter', voter_id=voter['voter_id']) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Candidates</h2>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Candidate ID</th><th>Name</th><th>Party</th><th>Block</th><th>Agenda</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for candidate in candidates %}
+                    <tr>
+                        <td>{{ candidate['candidate_id'] }}</td>
+                        <td>{{ candidate['name'] }}</td>
+                        <td>{{ candidate['party'] }}</td>
+                        <td>{{ candidate['block'] }}</td>
+                        <td>{{ candidate['agenda'] }}</td>
+                        <td>
+                            <a href="{{ url_for('candidate_profile', candidate_id=candidate['candidate_id']) }}" class="btn btn-info btn-sm">View Profile</a>
+                            <form method="POST" action="{{ url_for('delete_candidate', candidate_id=candidate['candidate_id']) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2>Votes</h2>
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Voter ID</th><th>Candidate</th><th>Timestamp</th><th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vote in votes %}
+                    <tr>
+                        <td>{{ vote['voter_id'] }}</td>
+                        <td>{{ vote['candidate'] }}</td>
+                        <td>{{ vote['timestamp'] }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_vote', voter_id=vote['voter_id']) }}" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Analytics Section -->
+        <h2 class="mt-4">Election Analytics</h2>
+        
+        <!-- Voter Turnout -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3>Voter Turnout</h3>
+                <p>Total Registered Voters: {{ total_voters }}</p>
+                <p>Total Votes Cast: {{ total_votes }}</p>
+                <p>Turnout Percentage: {{ "%.2f"|format(turnout) }}%</p>
+                <div class="progress">
+                    <div class="progress-bar" role="progressbar" style="width: {{ turnout }}%;" aria-valuenow="{{ turnout }}" aria-valuemin="0" aria-valuemax="100">{{ "%.2f"|format(turnout) }}%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vote Statistics -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3>Vote Statistics</h3>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Block</th>
+                            <th>Candidate</th>
+                            <th>Votes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in vote_stats %}
+                            <tr>
+                                <td>{{ stat['block'] }}</td>
+                                <td>{{ stat['candidate'] }}</td>
+                                <td>{{ stat['vote_count'] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Trends -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h3>Vote Trends by Block</h3>
+                <div class="chart-container">
+                    <canvas id="trendsChart"></canvas>
+                </div>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const ctx = document.getElementById('trendsChart').getContext('2d');
+                        const labels = [{% for trend in block_trends %}'{{ trend['block'] }}'{% if not loop.last %},{% endif %}{% endfor %}];
+                        const data = [{% for trend in block_trends %}{{ trend['vote_count'] }}{% if not loop.last %},{% endif %}{% endfor %}];
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: labels,
+                                datasets: [{
+                                    label: 'Votes per Block',
+                                    data: data,
+                                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                    borderColor: 'rgba(54, 162, 235, 1)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: {
+                                scales: {
+                                    y: { beginAtZero: true }
+                                },
+                                responsive: true,
+                                maintainAspectRatio: true // Changed to true for better control
+                            }
+                        });
+                    });
+                </script>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
