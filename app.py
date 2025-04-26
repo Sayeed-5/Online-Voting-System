@@ -35,7 +35,7 @@ def init_db():
             voter_id TEXT PRIMARY KEY,
             name TEXT,
             address TEXT,
-            block TEXT,
+            District TEXT,
             email TEXT,
             password TEXT
         )
@@ -53,7 +53,7 @@ def init_db():
             candidate_id TEXT PRIMARY KEY,
             name TEXT,
             party TEXT,
-            block TEXT,
+            District TEXT,
             agenda TEXT,
             photo TEXT
         )
@@ -71,19 +71,21 @@ def home():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    districts = get_unique_districts()
+    print(f"Passing to template: {districts}")  # Debug line
     if request.method == 'POST':
         voter_id = request.form['voter_id']
         name = request.form['name']
         address = request.form['address']
-        block = request.form['block']
+        District = request.form['District']
         email = request.form['email']
         password = bcrypt.hashpw(request.form['password'].encode('utf-8'), bcrypt.gensalt())
         conn = get_db_connection()
         if conn.execute('SELECT * FROM users WHERE voter_id = ?', (voter_id,)).fetchone():
             conn.close()
             return render_template('register.html', message="Voter ID already registered!")
-        conn.execute('INSERT INTO users (voter_id, name, address, block, email, password) VALUES (?, ?, ?, ?, ?, ?)', 
-                     (voter_id, name, address, block, email, password))
+        conn.execute('INSERT INTO users (voter_id, name, address, District, email, password) VALUES (?, ?, ?, ?, ?, ?)', 
+                     (voter_id, name, address, District, email, password))
         conn.commit()
         conn.close()
         
@@ -100,15 +102,16 @@ def register():
             print(f"Email sending failed: {e}")
 
         return redirect(url_for('login'))
-    return render_template('register.html')
+    return render_template('register.html', districts=districts)
 
 @app.route('/candidate_register', methods=['GET', 'POST'])
 def candidate_register():
+    districts = get_unique_districts()
     if request.method == 'POST':
         candidate_id = request.form['candidate_id']
         name = request.form['name']
         party = request.form['party']
-        block = request.form['block']
+        District = request.form['District']
         agenda = request.form['agenda']
         conn = get_db_connection()
         existing_candidate = conn.execute('SELECT * FROM candidates WHERE candidate_id = ?', 
@@ -116,12 +119,12 @@ def candidate_register():
         if existing_candidate:
             conn.close()
             return render_template('candidate_register.html', message="Candidate ID already registered!")
-        conn.execute('INSERT INTO candidates (candidate_id, name, party, block, agenda) VALUES (?, ?, ?, ?, ?)', 
-                    (candidate_id, name, party, block, agenda))
+        conn.execute('INSERT INTO candidates (candidate_id, name, party, District, agenda) VALUES (?, ?, ?, ?, ?)', 
+                    (candidate_id, name, party, District, agenda))
         conn.commit()
         conn.close()
         return redirect(url_for('home'))
-    return render_template('candidate_register.html')
+    return render_template('candidate_register.html', districts=districts)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -155,10 +158,10 @@ def vote():
     conn = get_db_connection()
     voted = conn.execute('SELECT * FROM votes WHERE voter_id = ?', 
                          (session['voter_id'],)).fetchone()
-    user = conn.execute('SELECT block, email, name FROM users WHERE voter_id = ?', 
+    user = conn.execute('SELECT District, email, name FROM users WHERE voter_id = ?', 
                         (session['voter_id'],)).fetchone()
-    block = user['block'] if user else None
-    candidates = conn.execute("SELECT * FROM candidates WHERE block = ?", (block,)).fetchall()
+    District = user['District'] if user else None
+    candidates = conn.execute("SELECT * FROM candidates WHERE District = ?", (District,)).fetchall()
     if request.method == 'POST' and not voted:
         candidate = request.form['candidate']
         conn.execute('INSERT INTO votes (voter_id, candidate) VALUES (?, ?)', 
@@ -192,22 +195,22 @@ def results():
     conn = get_db_connection()
     search_query = request.args.get('search', '')
     if search_query:
-        candidates = conn.execute("SELECT name, block FROM candidates WHERE name LIKE ? OR block LIKE ?", 
+        candidates = conn.execute("SELECT name, District FROM candidates WHERE name LIKE ? OR District LIKE ?", 
                                  (f'%{search_query}%', f'%{search_query}%')).fetchall()
         results = conn.execute("""
-            SELECT c.block, c.name AS candidate, COUNT(v.candidate) AS vote_count
+            SELECT c.District, c.name AS candidate, COUNT(v.candidate) AS vote_count
             FROM candidates c
             LEFT JOIN votes v ON c.name = v.candidate
-            WHERE c.name LIKE ? OR c.block LIKE ?
-            GROUP BY c.block, c.name
+            WHERE c.name LIKE ? OR c.District LIKE ?
+            GROUP BY c.District, c.name
         """, (f'%{search_query}%', f'%{search_query}%')).fetchall()
     else:
-        candidates = conn.execute("SELECT name, block FROM candidates").fetchall()
+        candidates = conn.execute("SELECT name, District FROM candidates").fetchall()
         results = conn.execute("""
-            SELECT c.block, c.name AS candidate, COUNT(v.candidate) AS vote_count
+            SELECT c.District, c.name AS candidate, COUNT(v.candidate) AS vote_count
             FROM candidates c
             LEFT JOIN votes v ON c.name = v.candidate
-            GROUP BY c.block, c.name
+            GROUP BY c.District, c.name
         """).fetchall()
     print(f"Results fetched: {results}")
     conn.close()
@@ -254,24 +257,24 @@ def admin_dashboard():
     turnout = (total_votes / total_voters * 100) if total_voters > 0 else 0
     
     vote_stats = conn.execute("""
-        SELECT c.block, c.name AS candidate, COUNT(v.candidate) AS vote_count
+        SELECT c.District, c.name AS candidate, COUNT(v.candidate) AS vote_count
         FROM candidates c
         LEFT JOIN votes v ON c.name = v.candidate
-        GROUP BY c.block, c.name
-        ORDER BY c.block, vote_count DESC
+        GROUP BY c.District, c.name
+        ORDER BY c.District, vote_count DESC
     """).fetchall()
     
-    block_trends = conn.execute("""
-        SELECT c.block, COUNT(v.candidate) AS vote_count
+    District_trends = conn.execute("""
+        SELECT c.District, COUNT(v.candidate) AS vote_count
         FROM candidates c
         LEFT JOIN votes v ON c.name = v.candidate
-        GROUP BY c.block
+        GROUP BY c.District
     """).fetchall()
 
     conn.close()
     return render_template('admin.html', voters=voters, candidates=candidates, votes=votes, search_query=search_query, 
                           turnout=turnout, total_voters=total_voters, total_votes=total_votes,
-                          vote_stats=vote_stats, block_trends=block_trends)
+                          vote_stats=vote_stats, District_trends=District_trends)
 
 @app.route('/candidate_profile/<candidate_id>')
 def candidate_profile(candidate_id):
@@ -288,8 +291,6 @@ def candidate_profile(candidate_id):
     
     return render_template('candidate_profile.html', candidate=candidate)
 
-
-# Add this route below the existing /candidate_profile route
 @app.route('/voter/candidate_profile/<candidate_id>')
 def voter_candidate_profile(candidate_id):
     if 'voter_id' not in session:
@@ -316,7 +317,7 @@ def update_candidate(candidate_id):
     if request.method == 'POST':
         name = request.form['name']
         party = request.form['party']
-        block = request.form['block']
+        District = request.form['District']
         agenda = request.form['agenda']
         
         photo = request.files.get('photo')
@@ -333,8 +334,8 @@ def update_candidate(candidate_id):
         elif 'remove_photo' in request.form:
             photo_path = None
         
-        conn.execute('UPDATE candidates SET name = ?, party = ?, block = ?, agenda = ?, photo = ? WHERE candidate_id = ?',
-                     (name, party, block, agenda, photo_path, candidate_id))
+        conn.execute('UPDATE candidates SET name = ?, party = ?, District = ?, agenda = ?, photo = ? WHERE candidate_id = ?',
+                     (name, party, District, agenda, photo_path, candidate_id))
         conn.commit()
         conn.close()
         flash('Candidate profile updated successfully!')
@@ -377,51 +378,88 @@ def delete_vote(voter_id):
 
 @app.route('/admin/add_voter', methods=['GET', 'POST'])
 def add_voter():
+    districts = get_unique_districts()
     if 'admin' not in session:
         return redirect(url_for('admin_login'))
     if request.method == 'POST':
         voter_id = request.form['voter_id']
         name = request.form['name']
         address = request.form['address']
-        block = request.form['block']
+        District = request.form['District']
         email = request.form['email']
         password = bcrypt.hashpw(request.form['password'].encode('utf-8'), bcrypt.gensalt())
         conn = get_db_connection()
         if conn.execute('SELECT * FROM users WHERE voter_id = ?', (voter_id,)).fetchone():
             conn.close()
             return render_template('add_voter.html', message="Voter ID already exists!")
-        conn.execute('INSERT INTO users (voter_id, name, address, block, email, password) VALUES (?, ?, ?, ?, ?, ?)', 
-                     (voter_id, name, address, block, email, password))
+        conn.execute('INSERT INTO users (voter_id, name, address, District, email, password) VALUES (?, ?, ?, ?, ?, ?)', 
+                     (voter_id, name, address, District, email, password))
         conn.commit()
         conn.close()
         return redirect(url_for('admin_dashboard'))
-    return render_template('add_voter.html')
+    return render_template('add_voter.html', districts=districts)
 
 @app.route('/admin/add_candidate', methods=['GET', 'POST'])
 def add_candidate():
+    districts = get_unique_districts()
     if 'admin' not in session:
         return redirect(url_for('admin_login'))
     if request.method == 'POST':
         candidate_id = request.form['candidate_id']
         name = request.form['name']
         party = request.form['party']
-        block = request.form['block']
+        District = request.form['District']
         agenda = request.form['agenda']
         conn = get_db_connection()
         if conn.execute('SELECT * FROM candidates WHERE candidate_id = ?', (candidate_id,)).fetchone():
             conn.close()
             return render_template('add_candidate.html', message="Candidate ID already exists!")
-        conn.execute('INSERT INTO candidates (candidate_id, name, party, block, agenda) VALUES (?, ?, ?, ?, ?)', 
-                     (candidate_id, name, party, block, agenda))
+        conn.execute('INSERT INTO candidates (candidate_id, name, party, District, agenda) VALUES (?, ?, ?, ?, ?)', 
+                     (candidate_id, name, party, District, agenda))
         conn.commit()
         conn.close()
         return redirect(url_for('admin_dashboard'))
-    return render_template('add_candidate.html')
+    return render_template('add_candidate.html', districts=districts)
 
 @app.route('/admin_logout')
 def admin_logout():
     session.pop('admin', None)
     return redirect(url_for('admin_login'))
+
+def get_unique_districts():
+    conn = sqlite3.connect('voting.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT DISTINCT District FROM candidates ORDER BY District')  # Changed to District
+    districts = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    print(f"Districts fetched: {districts}")  # Debug line
+    return districts
+
+@app.route('/admin_add_candidate', methods=['GET', 'POST'])
+def admin_add_candidate():
+    if 'admin' not in session:
+        return redirect(url_for('admin_login'))
+    if request.method == 'POST':
+        candidate_id = request.form['candidate_id']
+        name = request.form['name']
+        party = request.form['party']
+        District = request.form['District']  # Fixed to match form field name
+        agenda = request.form['agenda']
+        conn = get_db_connection()
+        if conn.execute('SELECT * FROM candidates WHERE candidate_id = ?', (candidate_id,)).fetchone():
+            conn.close()
+            return render_template('admin_add_candidate.html', message="Candidate ID already exists!")
+        try:
+            conn.execute('INSERT INTO candidates (candidate_id, name, party, District, agenda) VALUES (?, ?, ?, ?, ?)', 
+                         (candidate_id, name, party, District, agenda))
+            conn.commit()
+            print(f"Inserted candidate: {candidate_id}, {name}, {party}, {District}, {agenda}")  # Debug
+        except Exception as e:
+            conn.close()
+            return render_template('admin_add_candidate.html', message=f"Error: {str(e)}")
+        conn.close()
+        return redirect(url_for('admin_dashboard'))
+    return render_template('admin_add_candidate.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
