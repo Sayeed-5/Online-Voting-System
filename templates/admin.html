@@ -28,6 +28,7 @@
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
                     {% elif 'admin' in session %}
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_add_candidate') }}">Add Candidate</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('admin_logout') }}">Admin Logout</a></li>
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
@@ -59,7 +60,7 @@
             <table class="table table-bordered table-striped">
                 <thead class="table-dark">
                     <tr>
-                        <th>Voter ID</th><th>Name</th><th>Address</th><th>Block</th><th>Email</th><th>Action</th>
+                        <th>Voter ID</th><th>Name</th><th>Address</th><th>District</th><th>Email</th><th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,7 +69,7 @@
                         <td>{{ voter['voter_id'] }}</td>
                         <td>{{ voter['name'] }}</td>
                         <td>{{ voter['address'] }}</td>
-                        <td>{{ voter['block'] }}</td>
+                        <td>{{ voter['District'] }}</td>
                         <td>{{ voter['email'] }}</td>
                         <td>
                             <form method="POST" action="{{ url_for('delete_voter', voter_id=voter['voter_id']) }}" style="display:inline;">
@@ -86,7 +87,7 @@
             <table class="table table-bordered table-striped">
                 <thead class="table-dark">
                     <tr>
-                        <th>Candidate ID</th><th>Name</th><th>Party</th><th>Block</th><th>Agenda</th><th>Action</th>
+                        <th>Candidate ID</th><th>Name</th><th>Party</th><th>District</th><th>Agenda</th><th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -95,7 +96,7 @@
                         <td>{{ candidate['candidate_id'] }}</td>
                         <td>{{ candidate['name'] }}</td>
                         <td>{{ candidate['party'] }}</td>
-                        <td>{{ candidate['block'] }}</td>
+                        <td>{{ candidate['District'] }}</td>
                         <td>{{ candidate['agenda'] }}</td>
                         <td>
                             <a href="{{ url_for('candidate_profile', candidate_id=candidate['candidate_id']) }}" class="btn btn-info btn-sm">View Profile</a>
@@ -157,7 +158,7 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Block</th>
+                            <th>District</th>
                             <th>Candidate</th>
                             <th>Votes</th>
                         </tr>
@@ -165,7 +166,7 @@
                     <tbody>
                         {% for stat in vote_stats %}
                             <tr>
-                                <td>{{ stat['block'] }}</td>
+                                <td>{{ stat['District'] }}</td>
                                 <td>{{ stat['candidate'] }}</td>
                                 <td>{{ stat['vote_count'] }}</td>
                             </tr>
@@ -178,21 +179,21 @@
         <!-- Trends -->
         <div class="card mb-4">
             <div class="card-body">
-                <h3>Vote Trends by Block</h3>
+                <h3>Vote Trends by District</h3>
                 <div class="chart-container">
                     <canvas id="trendsChart"></canvas>
                 </div>
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
                         const ctx = document.getElementById('trendsChart').getContext('2d');
-                        const labels = [{% for trend in block_trends %}'{{ trend['block'] }}'{% if not loop.last %},{% endif %}{% endfor %}];
-                        const data = [{% for trend in block_trends %}{{ trend['vote_count'] }}{% if not loop.last %},{% endif %}{% endfor %}];
+                        const labels = [{% for trend in District_trends %}'{{ trend['District'] }}'{% if not loop.last %},{% endif %}{% endfor %}];
+                        const data = [{% for trend in District_trends %}{{ trend['vote_count'] }}{% if not loop.last %},{% endif %}{% endfor %}];
                         new Chart(ctx, {
                             type: 'bar',
                             data: {
                                 labels: labels,
                                 datasets: [{
-                                    label: 'Votes per Block',
+                                    label: 'Votes per District',
                                     data: data,
                                     backgroundColor: 'rgba(54, 162, 235, 0.2)',
                                     borderColor: 'rgba(54, 162, 235, 1)',
