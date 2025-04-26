@@ -57,7 +57,7 @@
                 <div class="card mb-3">
                     <div class="card-body">
                         <h5 class="card-title">{{ candidate['name'] }} ({{ candidate['party'] }})</h5>
-                        <p class="card-text">Block: {{ candidate['block'] }}</p>
+                        <p class="card-text">District: {{ candidate['District'] }}</p>
                         <p class="card-text">Agenda: {{ candidate['agenda'] }}</p>
                         <a href="{{ url_for('voter_candidate_profile', candidate_id=candidate['candidate_id']) }}" class="btn btn-info btn-sm">View Profile</a>
                         <form method="POST">
